@@ -31,11 +31,9 @@ class Client(object):
 		self.logger = logger.getLogger('PyBullet')
 		
 		if not os.path.exists(Client.GLOBAL_SETTINGS_FILE) and not settings:
-			try:
-				raise Exception('No settings given')
-			except Exception:
-				self.logger.exception('No settings given')
-				raise
+			self.logger.error('No settings given')
+			raise Exception('No settings given')
+
 
 		if os.path.exists(Client.GLOBAL_SETTINGS_FILE):
 			self.settings = Client._load_config()
@@ -56,11 +54,8 @@ class Client(object):
 		elif auth_settings['type'] == 'oauth':
 			self.auth = pybullet.auth.OAuthAuthenticator(auth_settings)
 		else:
-			try:
-				raise Exception('Invalid authentication scheme given. Must be basic or oauth')
-			except Exception:
-				self.logger.exception('Invalid authentication scheme given. Must be basic or oauth')
-				raise
+			self.logger.error('Invalid authentication scheme given. Must be basic or oauth')
+			raise Exception('Invalid authentication scheme given. Must be basic or oauth')
 
 	def devices(self):
 		"""
