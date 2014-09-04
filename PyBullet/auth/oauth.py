@@ -30,11 +30,19 @@ class OAuthAuthenticator(base.Authenticator):
 
 		if 'access_token' not in self.settings:
 			# pylint: disable=line-too-long
-			raise OAuthAuthenticationError(
-				'User access token unkown. Grant the application permission by going to {} and then set the access_token with the value that is returned'.format(
-					self.oauth_grant_url,
-				),
-			)
+			try:
+				raise OAuthAuthenticationError(
+					'User access token unkown. Grant the application permission by going to {} and then set the access_token with the value that is returned'.format(
+						self.oauth_grant_url,
+					),
+				)
+			except OAuthAuthenticationError:
+				self.logger(
+					'User access token unkown. Grant the application permission by going to {} and then set the access_token with the value that is returned'.format(
+						self.oauth_grant_url,
+					),
+				)
+				raise
 			# pylint: enable=line-too-long
 
 		return self.settings['access_token']

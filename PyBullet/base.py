@@ -1,4 +1,5 @@
 import pybullet.auth
+import pybullet.logger
 
 import json
 import mimetypes
@@ -27,17 +28,25 @@ class Client(object):
 		set per user via the GLOBAL_SETTINGS_FILE.
 		"""
 
+		self.logger = logger.getLogger('PyBullet')
+		
 		if not os.path.exists(Client.GLOBAL_SETTINGS_FILE) and not settings:
-			raise Exception('No settings given')
+			try:
+				raise Exception('No settings given')
+			except Exception:
+				self.logger.exception('No settings given')
+				raise
 
 		if os.path.exists(Client.GLOBAL_SETTINGS_FILE):
 			self.settings = Client._load_config()
+			self.logger.info('Config file loaded')
 		else:
 			self.settings = {}
 
 		if settings:
 			if isinstance(settings, str):
 				settings = Client._load_config(settings)
+				self.logger.info('Parameter config loaded')
 
 			self.settings.update(settings)
 
@@ -47,7 +56,11 @@ class Client(object):
 		elif auth_settings['type'] == 'oauth':
 			self.auth = pybullet.auth.OAuthAuthenticator(auth_settings)
 		else:
-			raise Exception('Invalid authentication scheme given. Must be basic or oauth')
+			try:
+				raise Exception('Invalid authentication scheme given. Must be basic or oauth')
+			except Exception:
+				self.logger.exception('Invalid authentication scheme given. Must be basic or oauth')
+				raise
 
 	def devices(self):
 		"""

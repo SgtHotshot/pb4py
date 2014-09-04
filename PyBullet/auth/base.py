@@ -16,6 +16,7 @@ class Authenticator(object):
 		Create the authenticator with the given settings
 		"""
 
+		self.logger = logger.getLogger('PyBullet:Request')
 		self.settings = settings
 
 	@abc.abstractmethod
@@ -33,7 +34,11 @@ class Authenticator(object):
 
 		resp = requests.request(method, url, auth = auth, **kwargs)
 		if resp.status_code < 200 and resp.status_code >= 300:
-			raise IOError('Bad status code of {} returned'.format(resp.status_code))
+			try:
+				raise IOError('Bad status code of {} returned'.format(resp.status_code))
+			except IOError:
+				self.logger.exception('Bad status code of {} returned'.format(resp.status_code))
+				raise
 
 		ret = resp.json() if resp.status_code != 204 else None
 
