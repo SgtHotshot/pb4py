@@ -1,4 +1,5 @@
 from . import base
+from . import logger
 
 # pylint: disable=no-init
 

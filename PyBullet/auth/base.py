@@ -2,6 +2,8 @@ import abc
 
 import requests
 
+from . import logger
+
 # pylint: disable=abstract-class-not-used
 
 class Authenticator(object):
