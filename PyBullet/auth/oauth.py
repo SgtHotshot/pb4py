@@ -1,5 +1,5 @@
 from . import base
-from . import logger
+from pybullet import logger
 
 # pylint: disable=no-init
 

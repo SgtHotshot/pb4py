@@ -1,4 +1,4 @@
-import pybullet.auth
+from pybullet import auth
 from .base import Client
 
 __all__ = [

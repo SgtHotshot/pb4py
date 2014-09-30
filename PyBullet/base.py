@@ -1,4 +1,4 @@
-import pybullet.auth
+from pybullet import auth
 import pybullet.logger
 
 import json

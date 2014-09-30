@@ -2,7 +2,7 @@ import abc
 
 import requests
 
-from . import logger
+from pybullet import logger
 
 # pylint: disable=abstract-class-not-used
 
