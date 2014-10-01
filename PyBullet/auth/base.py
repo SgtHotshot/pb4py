@@ -2,7 +2,7 @@ import abc
 
 import requests
 
-from pybullet import logger
+from pybullet.logger import Logs
 
 # pylint: disable=abstract-class-not-used
 
@@ -17,8 +17,8 @@ class Authenticator(object):
 		"""
 		Create the authenticator with the given settings
 		"""
-
-		self.logger = logger.getLogger('PyBullet:Request')
+		Logss = Logs()
+		self.logger = Logss.getLogger('PyBullet:Request')
 		self.settings = settings
 
 	@abc.abstractmethod

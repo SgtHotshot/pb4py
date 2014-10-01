@@ -1,5 +1,5 @@
 from pybullet import auth
-import pybullet.logger
+from pybullet.logger import Logs
 
 import json
 import mimetypes
@@ -19,6 +19,8 @@ class Client(object):
 	ME_URL        = BASE_URL + '/users/me'
 	PUSH_URL      = BASE_URL + '/pushes'
 	UPLOAD_URL    = BASE_URL + '/upload-request'
+	
+	MAX_FILE_SIZE = 25000000
 
 	def __init__(self, settings = None):
 		"""
@@ -27,8 +29,9 @@ class Client(object):
 		setting values. These settings override the "Global settings" that are
 		set per user via the GLOBAL_SETTINGS_FILE.
 		"""
-
-		self.logger = logger.getLogger('PyBullet')
+		
+		Logss = Logs()
+		self.logger = Logss.getLogger('PyBullet')
 		
 		if not os.path.exists(Client.GLOBAL_SETTINGS_FILE) and not settings:
 			self.logger.error('No settings given')
@@ -50,9 +53,9 @@ class Client(object):
 
 		auth_settings = self.settings['auth']
 		if auth_settings['type'] == 'basic':
-			self.auth = pybullet.auth.BasicAuthenticator(auth_settings)
+			self.auth = auth.BasicAuthenticator(auth_settings)
 		elif auth_settings['type'] == 'oauth':
-			self.auth = pybullet.auth.OAuthAuthenticator(auth_settings)
+			self.auth = auth.OAuthAuthenticator(auth_settings)
 		else:
 			self.logger.error('Invalid authentication scheme given. Must be basic or oauth')
 			raise Exception('Invalid authentication scheme given. Must be basic or oauth')
@@ -240,11 +243,20 @@ class Client(object):
 		filename that is sent to PushBullet. We try to guess the MIME type
 		of the file but you can override that as well.
 		"""
-
 		file_handle = open(inputfile, 'rb') if isinstance(inputfile, str) else inputfile
 		name        = filename or file_handle.name
 		mime_type   = file_type or mimetypes.guess_type(name)
-
+		
+		if isinstance(inputfile, str):
+			if os.path.getsize(inputfile) <= Client.MAX_FILE_SIZE:
+				size = str(os.path.getsize(inputfile))
+				self.logger.debug("File is: " + size +"b")
+			else:
+				self.logger.debug("File was bigger than 25mb")
+				return None
+		else:
+			self.logger.debug("Was a File Handle not a file path")
+			
 		resp = self.auth.send_request(
 			Client.UPLOAD_URL,
 			'POST',
