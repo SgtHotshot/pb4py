@@ -5,7 +5,6 @@ import json
 import mimetypes
 import os.path
 import os
-import websocket
 
 class Client(object):
 	"""
