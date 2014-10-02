@@ -4,6 +4,7 @@ from pybullet.logger import Logs
 import json
 import mimetypes
 import os.path
+import os
 import websocket
 
 class Client(object):
@@ -21,6 +22,7 @@ class Client(object):
 	UPLOAD_URL    = BASE_URL + '/upload-request'
 	
 	MAX_FILE_SIZE = 25000000
+	MB_DIVIDE = (1024*1024.0)
 
 	def __init__(self, settings = None):
 		"""
@@ -248,14 +250,22 @@ class Client(object):
 		mime_type   = file_type or mimetypes.guess_type(name)
 		
 		if isinstance(inputfile, str):
-			if os.path.getsize(inputfile) <= Client.MAX_FILE_SIZE:
-				size = str(os.path.getsize(inputfile))
-				self.logger.debug("File is: " + size +"b")
+			size = str(os.path.getsize(inputfile)/Client.MB_DIVIDE)
+			if os.path.getsize(inputfile) <= Client.MAX_FILE_SIZE:	
+				self.logger.debug("File is: " + size + "MB")
 			else:
-				self.logger.debug("File was bigger than 25mb")
+				self.logger.debug("File was bigger than 25mb.  It was: " + size + "MB")
 				return None
 		else:
 			self.logger.debug("Was a File Handle not a file path")
+			size = os.fstat(file_handle.fileno()).st_size
+			fileSize = str(size/Client.MB_DIVIDE)
+			if size <= Client.MAX_FILE_SIZE:
+				self.logger.debug("File is: " + fileSize + "MB")
+			else:
+				self.logger.debug("File was bigger than 25mb.  It was: " + fileSize + "MB")
+				return None
+			
 			
 		resp = self.auth.send_request(
 			Client.UPLOAD_URL,
