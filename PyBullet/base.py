@@ -55,8 +55,10 @@ class Client(object):
 		auth_settings = self.settings['auth']
 		if auth_settings['type'] == 'basic':
 			self.auth = auth.BasicAuthenticator(auth_settings)
+			self.logger.info('Loaded Basic Authenticator')
 		elif auth_settings['type'] == 'oauth':
 			self.auth = auth.OAuthAuthenticator(auth_settings)
+			self.logger.info('Loaded OAuth Authenticator')
 		else:
 			self.logger.error('Invalid authentication scheme given. Must be basic or oauth')
 			raise Exception('Invalid authentication scheme given. Must be basic or oauth')
