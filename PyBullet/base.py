@@ -19,6 +19,8 @@ class Client(object):
 	ME_URL        = BASE_URL + '/users/me'
 	PUSH_URL      = BASE_URL + '/pushes'
 	UPLOAD_URL    = BASE_URL + '/upload-request'
+	SUBSCRIPTION_URL = BASE_URL + '/subscriptions'
+	CHANNEL_URL   = BASE_URL + 'channel-info'
 	
 	MAX_FILE_SIZE = 25000000
 	MB_DIVIDE = (1024*1024.0)
@@ -134,9 +136,13 @@ class Client(object):
 			* file_type - the MIME type of the file
 			* file_url  - the url where the file can be downloaded
 			* body      - message to with the file
+			
+			
 
-		All push types also take a device_iden or email paramter to push to a
+		All push types also take a device_iden or email parameter to push to a
 		device or user. If device_iden is not given the push goes to all devices.
+		
+		To send a push to a channel use the parameter channel_tag.
 
 		To push a file you must first upload it using the upload_file method.
 		"""
@@ -285,7 +291,54 @@ class Client(object):
 		)
 
 		return resp
+		
+	
+	def subscribe_to_channel(self, channel_tag):
+		"""
+			Subscribe to a channel
+		"""
+		
+		return self.auth.send_request(
+			Client.SUBSCRIPTION_URL,
+			'POST',
+			data = {'channel_tag': channel_tag}
+		)
+		
+	
+	def unsubscribe_to_channel(self, channel_id):
+		"""
+			UnSubscribe to a channel
+		"""
+	
+	
+		return self.auth.send_request(
+			Client.SUBSCRIPTION_URL + '/' + channel_id,
+			'DELETE',
+		)
+	
+	
+	
+	def get_channel_info(self, channel_id):
+		"""
+			Get a Channel's Info
+		"""
+	
+		return self.auth.send_request(
+			Client.CHANNEL_URL,
+			'GET',
+			data = {'tag': channel_id},
+		)
 
+	
+	
+	def list_subscriptions(self):
+		"""
+			List Subscriptions
+		"""
+	
+		return self.auth.send_request(Client.SUBSCRIPTION_URL,'GET')
+	
+		
 	@staticmethod
 	def _load_config(settings = None):
 		"""
