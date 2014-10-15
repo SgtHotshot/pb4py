@@ -318,15 +318,16 @@ class Client(object):
 	
 	
 	
-	def get_channel_info(self, channel_id):
+	def get_channel_info(self, channel_tag):
 		"""
 			Get a Channel's Info
 		"""
+
 	
 		return self.auth.send_request(
 			Client.CHANNEL_URL,
 			'GET',
-			data = {'tag': channel_id},
+			params = {'tag': channel_tag},
 		)
 
 	
