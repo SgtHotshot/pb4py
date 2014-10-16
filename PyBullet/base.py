@@ -20,7 +20,7 @@ class Client(object):
 	PUSH_URL      = BASE_URL + '/pushes'
 	UPLOAD_URL    = BASE_URL + '/upload-request'
 	SUBSCRIPTION_URL = BASE_URL + '/subscriptions'
-	CHANNEL_URL   = BASE_URL + 'channel-info'
+	CHANNEL_URL   = BASE_URL + '/channel-info'
 	
 	MAX_FILE_SIZE = 25000000
 	MB_DIVIDE = (1024*1024.0)
