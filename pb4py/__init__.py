@@ -1,4 +1,4 @@
-from pybullet import auth
+from pb4py import auth
 from .base import Client
 
 __all__ = [

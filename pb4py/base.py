@@ -1,5 +1,5 @@
-from pybullet import auth
-from pybullet.logger import Logs
+from pb4py import auth
+from pb4py.logger import Logs
 
 import json
 import mimetypes
@@ -11,7 +11,7 @@ class Client(object):
 	PushBullet client for Python.
 	"""
 
-	GLOBAL_SETTINGS_FILE = os.path.expanduser('~/.pybulletrc')
+	GLOBAL_SETTINGS_FILE = os.path.expanduser('~/.pb4pyrc')
 
 	BASE_URL      = 'https://api.pushbullet.com/v2'
 	CONTACTS_URL  = BASE_URL + '/contacts'
@@ -34,7 +34,7 @@ class Client(object):
 		"""
 		
 		Logss = Logs()
-		self.logger = Logss.getLogger('PyBullet')
+		self.logger = Logss.getLogger('PB4Py')
 		
 		if not os.path.exists(Client.GLOBAL_SETTINGS_FILE) and not settings:
 			self.logger.error('No settings given')

@@ -2,7 +2,7 @@ import abc
 
 import requests
 
-from pybullet.logger import Logs
+from pb4py.logger import Logs
 
 # pylint: disable=abstract-class-not-used
 
