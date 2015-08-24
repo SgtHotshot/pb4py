@@ -1,4 +1,5 @@
-from . import base
+from pb4py import utils
+from pb4py.auth import base
 
 # pylint: disable=no-init
 
@@ -30,15 +31,12 @@ class OAuthAuthenticator(base.Authenticator):
 
 		if 'access_token' not in self.settings:
 			# pylint: disable=line-too-long
-			self.logger.error(
-				'User access token unkown. Grant the application permission by going to {} and then set the access_token with the value that is returned'.format(
+			utils.log_and_raise(
+					self.logger,
+					'User access token unkown. Grant the application permission by going to {} and then set the access_token with the value that is returned'.format(
 					self.oauth_grant_url,
 				),
-			)
-			raise OAuthAuthenticationError(
-				'User access token unkown. Grant the application permission by going to {} and then set the access_token with the value that is returned'.format(
-					self.oauth_grant_url,
-				),
+				OAuthAuthenticationError
 			)
 			# pylint: enable=line-too-long
 

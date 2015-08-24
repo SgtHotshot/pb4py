@@ -1,10 +1,10 @@
-from pb4py import auth
+from pb4py import auth, utils
 from pb4py.logger import Logs
 
 import json
 import mimetypes
-import os.path
 import os
+import os.path
 
 class Client(object):
 	"""
@@ -13,17 +13,23 @@ class Client(object):
 
 	GLOBAL_SETTINGS_FILE = os.path.expanduser('~/.pb4pyrc')
 
-	BASE_URL      = 'https://api.pushbullet.com/v2'
-	CONTACTS_URL  = BASE_URL + '/contacts'
-	DEVICE_URL    = BASE_URL + '/devices'
-	ME_URL        = BASE_URL + '/users/me'
-	PUSH_URL      = BASE_URL + '/pushes'
-	UPLOAD_URL    = BASE_URL + '/upload-request'
+	BASE_URL         = 'https://api.pushbullet.com/v2'
+	CONTACTS_URL     = BASE_URL + '/contacts'
+	DEVICE_URL       = BASE_URL + '/devices'
+	ME_URL           = BASE_URL + '/users/me'
+	PUSH_URL         = BASE_URL + '/pushes'
+	UPLOAD_URL       = BASE_URL + '/upload-request'
 	SUBSCRIPTION_URL = BASE_URL + '/subscriptions'
-	CHANNEL_URL   = BASE_URL + '/channel-info'
+	CHANNEL_URL      = BASE_URL + '/channel-info'
 	
 	MAX_FILE_SIZE = 25000000
-	MB_DIVIDE = (1024*1024.0)
+	MB_DIVIDE     = (1024.0 * 1024.0)
+
+	PUSH_TYPES = [
+		'file',
+		'link',
+		'note',
+	]
 
 	def __init__(self, settings = None):
 		"""
@@ -32,18 +38,16 @@ class Client(object):
 		setting values. These settings override the "Global settings" that are
 		set per user via the GLOBAL_SETTINGS_FILE.
 		"""
-		
-		Logss = Logs()
-		self.logger = Logss.getLogger('PB4Py')
-		
+
+		self.logger = Logs.getLogger('PB4Py')
+
 		if not os.path.exists(Client.GLOBAL_SETTINGS_FILE) and not settings:
 			self.logger.error('No settings given')
 			raise Exception('No settings given')
 
-
 		if os.path.exists(Client.GLOBAL_SETTINGS_FILE):
 			self.settings = Client._load_config()
-			self.logger.info('Config file loaded')
+			self.logger.debug('Config file loaded')
 		else:
 			self.settings = {}
 
@@ -54,25 +58,18 @@ class Client(object):
 
 			self.settings.update(settings)
 
-		auth_settings = self.settings['auth']
-		if auth_settings['type'] == 'basic':
-			self.auth = auth.BasicAuthenticator(auth_settings)
-			self.logger.info('Loaded Basic Authenticator')
-		elif auth_settings['type'] == 'oauth':
-			self.auth = auth.OAuthAuthenticator(auth_settings)
-			self.logger.info('Loaded OAuth Authenticator')
-		else:
-			self.logger.error('Invalid authentication scheme given. Must be basic or oauth')
-			raise Exception('Invalid authentication scheme given. Must be basic or oauth')
+		self.auth = self._get_auth_module(self.settings.get('auth', None))
 
-	def devices(self):
+	def devices(self, exclude_inactive = True):
 		"""
 		List devices.
 		"""
 
 		resp = self.auth.send_request(Client.DEVICE_URL, 'GET')
 
-		return resp['devices']
+		devices = resp['devices']
+
+		return devices if not exclude_inactive else Client._filter_inactive(devices)
 
 	def create_device(self, name, device_type):
 		"""
@@ -123,35 +120,28 @@ class Client(object):
 			* url   - the url to open
 			* body  - optional message
 
-		push_type = address
-			* name    - the place's name
-			* address - the places'address or map search query
-
-		push_type = list
-			* title - the list's title
-			* items - the list of items
-
 		push_type = file
 			* file_name - the name of the file
 			* file_type - the MIME type of the file
 			* file_url  - the url where the file can be downloaded
 			* body      - message to with the file
-			
-			
 
 		All push types also take a device_iden or email parameter to push to a
 		device or user. If device_iden is not given the push goes to all devices.
-		
+
 		To send a push to a channel use the parameter channel_tag.
 
 		To push a file you must first upload it using the upload_file method.
 		"""
 
+		if push_type not in Client.PUSH_TYPES:
+			raise ValueError('Invalid push type {}'.format(push_type))
+
 		kwargs['type'] = push_type
 
 		return self.auth.send_request(Client.PUSH_URL, 'POST', data = kwargs)
 
-	def push_history(self, modified_timestamp):
+	def push_history(self, modified_timestamp = 0, exclude_inactive = True):
 		"""
 		Get all the pushes that were created/modified after the given
 		UNIX timestamp.
@@ -160,7 +150,10 @@ class Client(object):
 		return self.auth.send_request(
 			Client.PUSH_URL,
 			'GET',
-			params = {'modified_after': modified_timestamp},
+			params = {
+				'active': 'true' if exclude_inactive else 'false',
+				'modified_after': modified_timestamp,
+			},
 		)['pushes']
 
 	def dismiss_push(self, push_iden):
@@ -184,15 +177,17 @@ class Client(object):
 			'DELETE',
 		)
 
-	def contacts(self):
+	def contacts(self, exclude_inactive = True):
 		"""
 		Get contacts
 		"""
 
-		return self.auth.send_request(
+		contacts = self.auth.send_request(
 			Client.CONTACTS_URL,
 			'GET',
-		)
+		)['contacts']
+
+		return contacts if not exclude_inactive else Client._filter_inactive(contacts)
 
 	def create_contact(self, name, email):
 		"""
@@ -252,10 +247,14 @@ class Client(object):
 		filename that is sent to PushBullet. We try to guess the MIME type
 		of the file but you can override that as well.
 		"""
+
+		if isinstance(inputfile, str) and filename is None:
+			filename = os.path.basename(inputfile)
+
 		file_handle = open(inputfile, 'rb') if isinstance(inputfile, str) else inputfile
 		name        = filename or file_handle.name
 		mime_type   = file_type or mimetypes.guess_type(name)
-		
+
 		if isinstance(inputfile, str):
 			size = str(os.path.getsize(inputfile)/Client.MB_DIVIDE)
 			if os.path.getsize(inputfile) <= Client.MAX_FILE_SIZE:	
@@ -272,8 +271,7 @@ class Client(object):
 			else:
 				self.logger.debug("File was bigger than 25mb.  It was: " + fileSize + "MB")
 				return None
-			
-			
+
 		resp = self.auth.send_request(
 			Client.UPLOAD_URL,
 			'POST',
@@ -291,55 +289,66 @@ class Client(object):
 		)
 
 		return resp
-		
-	
+
+	def subscriptions(self, exclude_inactive = True):
+		"""
+		List Subscriptions
+		"""
+
+		subscriptions = self.auth.send_request(Client.SUBSCRIPTION_URL,'GET')['subscriptions']
+
+		return subscriptions if not exclude_inactive else Client._filter_inactive(subscriptions)
+
 	def subscribe_to_channel(self, channel_tag):
 		"""
-			Subscribe to a channel
+		Subscribe to a channel
 		"""
-		
+
 		return self.auth.send_request(
 			Client.SUBSCRIPTION_URL,
 			'POST',
 			data = {'channel_tag': channel_tag}
 		)
-		
-	
-	def unsubscribe_to_channel(self, channel_id):
-		"""
-			UnSubscribe to a channel
-		"""
-	
-	
-		return self.auth.send_request(
-			Client.SUBSCRIPTION_URL + '/' + channel_id,
-			'DELETE',
-		)
-	
-	
-	
+
 	def get_channel_info(self, channel_tag):
 		"""
-			Get a Channel's Info
+		Get a Channel's Info
 		"""
 
-	
 		return self.auth.send_request(
 			Client.CHANNEL_URL,
 			'GET',
 			params = {'tag': channel_tag},
 		)
 
-	
-	
-	def list_subscriptions(self):
+	def unsubscribe_to_channel(self, channel_id):
 		"""
-			List Subscriptions
+		UnSubscribe to a channel
 		"""
-	
-		return self.auth.send_request(Client.SUBSCRIPTION_URL,'GET')
-	
-		
+
+		return self.auth.send_request(
+			Client.SUBSCRIPTION_URL + '/' + channel_id,
+			'DELETE',
+		)
+
+	def _get_auth_module(self, auth_settings):
+		if not auth_settings:
+			utils.log_and_raise(self.logger, 'No authentication settings found')
+
+		if auth_settings['type'] == 'basic':
+			self.logger.info('Selected Basic Authenticator')
+
+			return auth.BasicAuthenticator(auth_settings)
+		elif auth_settings['type'] == 'oauth':
+			self.logger.info('Selected OAuth Authenticator')
+
+			return auth.OAuthAuthenticator(auth_settings)
+		else:
+			utils.log_and_raise(
+				self.logger,
+				'Invalid authentication scheme given. Must be basic or oauth',
+			)
+
 	@staticmethod
 	def _load_config(settings = None):
 		"""
@@ -350,4 +359,8 @@ class Client(object):
 
 		with open(settings, 'r') as fh:
 			return json.load(fh)
+
+	@staticmethod
+	def _filter_inactive(elements):
+		return [elem for elem in elements if elem['active']]
 
