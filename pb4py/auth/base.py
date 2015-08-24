@@ -35,7 +35,10 @@ class Authenticator(object):
 
 		resp = requests.request(method, url, auth = auth, **kwargs)
 		if resp.status_code < 200 and resp.status_code >= 300:
-			utils.log_and_raise('Bad status code of {} returned'.format(resp.status_code), IOError)
+			utils.log_and_raise(self.logger,
+			'Bad status code of {} returned'.format(resp.status_code),
+			IOError,
+		)
 
 		ret = resp.json() if resp.status_code != 204 else None
 

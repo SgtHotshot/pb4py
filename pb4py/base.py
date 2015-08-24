@@ -41,7 +41,7 @@ class Client(object):
 
 		if os.path.exists(Client.GLOBAL_SETTINGS_FILE):
 			self.settings = Client._load_config()
-			self.logger.info('Config file loaded')
+			self.logger.debug('Config file loaded')
 		else:
 			self.settings = {}
 
@@ -52,7 +52,7 @@ class Client(object):
 
 			self.settings.update(settings)
 
-		self.auth = self._get_auth_module(self.settings['auth'])
+		self.auth = self._get_auth_module(self.settings.get('auth', None))
 
 	def devices(self):
 		"""
@@ -319,6 +319,9 @@ class Client(object):
 		return self.auth.send_request(Client.SUBSCRIPTION_URL,'GET')
 
 	def _get_auth_module(self, auth_settings):
+		if not auth_settings:
+			utils.log_and_raise(self.logger, 'No authentication settings found')
+
 		if auth_settings['type'] == 'basic':
 			self.logger.info('Selected Basic Authenticator')
 
@@ -328,7 +331,10 @@ class Client(object):
 
 			return auth.OAuthAuthenticator(auth_settings)
 		else:
-			utils.log_and_raise('Invalid authentication scheme given. Must be basic or oauth')
+			utils.log_and_raise(
+				self.logger,
+				'Invalid authentication scheme given. Must be basic or oauth',
+			)
 
 	@staticmethod
 	def _load_config(settings = None):
