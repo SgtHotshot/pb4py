@@ -291,6 +291,58 @@ def add_push_commands(parsers):
 
 	delete_push.set_defaults(func = command_push_delete)
 
+def add_subscription_commands(parsers):
+	subscription_parsers = parsers.add_subparsers()
+
+	subscription_parsers.add_parser(
+		'list',
+		help = 'List your subscriptions',
+	).set_defaults(func = command_subscriptions_list)
+
+
+
+	unsubscribe_to_channel = subscription_parsers.add_parser(
+		'subscribe',
+		help = 'Subscribe to a channel',
+	)
+
+	unsubscribe_to_channel.add_argument(
+		'tag',
+		help = 'The channel tag',
+	)
+
+	unsubscribe_to_channel.set_defaults(func = command_subscriptions_unsubscribe)
+
+def add_channel_commands(parsers):
+	channel_parsers = parsers.add_subparsers()
+
+	channel_info = channel_parsers.add_parser(
+		'info',
+		help = 'Get information about a subscription.',
+	)
+
+	channel_info.add_argument(
+		'tag',
+		type = str,
+		help = 'The channel tag',
+	)
+
+	channel_info.set_defaults(func = command_channel_info)
+
+
+
+	subscribe = channel_parsers.add_parser(
+		'subscribe',
+		help = 'Subscribe to a channel.',
+	)
+
+	subscribe.add_argument(
+		'tag',
+		help = 'The channel tag',
+	)
+
+	subscribe.set_defaults(func = command_channel_subscribe)
+
 def add_parser_commands(parsers):
 	parsers.add_parser(
 		'generate-config',
@@ -309,12 +361,22 @@ def add_parser_commands(parsers):
 
 	parsers.add_parser(
 		'me',
-		help = 'Get/Update information about yourself.',
+		help = 'Get information about yourself.',
 	).set_defaults(func = command_me_get)
 
 	add_push_commands(parsers.add_parser(
 		'pushes',
 		help = 'Manage pushes',
+	))
+
+	add_subscription_commands(parsers.add_parser(
+		'subscriptions',
+		help = 'Manage subscriptions',
+	))
+
+	add_channel_commands(parsers.add_parser(
+		'channels',
+		help = 'Manage channels',
 	))
 
 def parse_args():
@@ -570,6 +632,46 @@ def command_push_delete(client, args):
 	client.delete_push(push)
 
 	print('Push deleted')
+
+@client_command
+def command_subscriptions_list(client, args):
+	subscriptions = client.subscriptions()
+
+	for subscription in subscriptions:
+		channel = subscription['channel']
+
+		subscription['name']        = channel.get('name',        '')
+		subscription['tag']         = channel.get('tag',         '')
+		subscription['website_url'] = channel.get('website_url', '')
+		subscription['description'] = channel.get('description', '')
+
+	print(build_table(subscriptions, ['iden', 'name', 'tag', 'website_url', 'description']))
+
+@client_command
+def command_subscriptions_unsubscribe(client, args):
+	channel = args.tag
+
+	confirm = prompt('Are you sure you want to unsubscribe from this channel?', default = 'no')
+	if not confirm:
+		return
+
+	client.unsubscribe_to_channel(channel)
+
+	print('Unsubscribed')
+
+@client_command
+def command_channel_info(client, args):
+	channel = client.get_channel_info(args.tag)
+
+	print(build_table([channel], ['iden', 'name', 'tag', 'subscriber_count', 'website_url', 'description']))
+
+@client_command
+def command_channel_subscribe(client, args):
+	channel = args.tag
+
+	client.subscribe_to_channel(channel)
+
+	print('Subscribed')
 
 
 

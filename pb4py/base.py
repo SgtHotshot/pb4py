@@ -290,9 +290,18 @@ class Client(object):
 
 		return resp
 
+	def subscriptions(self, exclude_inactive = True):
+		"""
+		List Subscriptions
+		"""
+
+		subscriptions = self.auth.send_request(Client.SUBSCRIPTION_URL,'GET')['subscriptions']
+
+		return subscriptions if not exclude_inactive else Client._filter_inactive(subscriptions)
+
 	def subscribe_to_channel(self, channel_tag):
 		"""
-			Subscribe to a channel
+		Subscribe to a channel
 		"""
 
 		return self.auth.send_request(
@@ -301,19 +310,9 @@ class Client(object):
 			data = {'channel_tag': channel_tag}
 		)
 
-	def unsubscribe_to_channel(self, channel_id):
-		"""
-			UnSubscribe to a channel
-		"""
-
-		return self.auth.send_request(
-			Client.SUBSCRIPTION_URL + '/' + channel_id,
-			'DELETE',
-		)
-
 	def get_channel_info(self, channel_tag):
 		"""
-			Get a Channel's Info
+		Get a Channel's Info
 		"""
 
 		return self.auth.send_request(
@@ -322,12 +321,15 @@ class Client(object):
 			params = {'tag': channel_tag},
 		)
 
-	def list_subscriptions(self):
+	def unsubscribe_to_channel(self, channel_id):
 		"""
-			List Subscriptions
+		UnSubscribe to a channel
 		"""
 
-		return self.auth.send_request(Client.SUBSCRIPTION_URL,'GET')
+		return self.auth.send_request(
+			Client.SUBSCRIPTION_URL + '/' + channel_id,
+			'DELETE',
+		)
 
 	def _get_auth_module(self, auth_settings):
 		if not auth_settings:
