@@ -25,6 +25,12 @@ class Client(object):
 	MAX_FILE_SIZE = 25000000
 	MB_DIVIDE     = (1024.0 * 1024.0)
 
+	PUSH_TYPES = [
+		'file',
+		'link',
+		'note',
+	]
+
 	def __init__(self, settings = None):
 		"""
 		Creates a client based off of the given settings. The settings parameter
@@ -114,14 +120,6 @@ class Client(object):
 			* url   - the url to open
 			* body  - optional message
 
-		push_type = address
-			* name    - the place's name
-			* address - the places'address or map search query
-
-		push_type = list
-			* title - the list's title
-			* items - the list of items
-
 		push_type = file
 			* file_name - the name of the file
 			* file_type - the MIME type of the file
@@ -136,11 +134,14 @@ class Client(object):
 		To push a file you must first upload it using the upload_file method.
 		"""
 
+		if push_type not in Client.PUSH_TYPES:
+			raise ValueError('Invalid push type {}'.format(push_type))
+
 		kwargs['type'] = push_type
 
 		return self.auth.send_request(Client.PUSH_URL, 'POST', data = kwargs)
 
-	def push_history(self, modified_timestamp):
+	def push_history(self, modified_timestamp = 0, exclude_inactive = True):
 		"""
 		Get all the pushes that were created/modified after the given
 		UNIX timestamp.
@@ -149,7 +150,10 @@ class Client(object):
 		return self.auth.send_request(
 			Client.PUSH_URL,
 			'GET',
-			params = {'modified_after': modified_timestamp},
+			params = {
+				'active': 'true' if exclude_inactive else 'false',
+				'modified_after': modified_timestamp,
+			},
 		)['pushes']
 
 	def dismiss_push(self, push_iden):
@@ -243,6 +247,9 @@ class Client(object):
 		filename that is sent to PushBullet. We try to guess the MIME type
 		of the file but you can override that as well.
 		"""
+
+		if isinstance(inputfile, str) and filename is None:
+			filename = os.path.basename(inputfile)
 
 		file_handle = open(inputfile, 'rb') if isinstance(inputfile, str) else inputfile
 		name        = filename or file_handle.name

@@ -158,6 +158,139 @@ def add_contact_commands(parsers):
 
 	delete_contact.set_defaults(func = command_contacts_delete)
 
+def add_push_commands(parsers):
+	push_parsers = parsers.add_subparsers()
+
+	send_push = push_parsers.add_parser(
+		'send',
+		help = 'Send a push notification.',
+	)
+
+	target_group = send_push.add_mutually_exclusive_group(required = True)
+
+	target_group.add_argument(
+		'--device_iden',
+		type = str,
+		help = 'A device ID',
+	)
+
+	target_group.add_argument(
+		'--email',
+		type = str,
+		help = 'An email address',
+	)
+
+	target_group.add_argument(
+		'--channel_tag',
+		type = str,
+		help = 'A channel tag',
+	)
+
+	target_group.add_argument(
+		'--client_iden',
+		type = str,
+		help = 'An OAuth client ID',
+	)
+
+	send_push.add_argument(
+		'push_type',
+		type    = str,
+		choices = pb4py.Client.PUSH_TYPES,
+		help    = 'The type of push to send',
+	)
+
+	send_push.add_argument(
+		'--title',
+		type    = str,
+		default = None,
+		help    = 'The title of the push (only used for note and link type pushes)',
+	)
+
+	send_push.add_argument(
+		'--body',
+		type    = str,
+		default = None,
+		help    = 'The body of the push',
+	)
+
+	send_push.add_argument(
+		'--url',
+		type    = str,
+		default = None,
+		help    = 'The URL of the push (only used for link pushes)',
+	)
+
+	send_push.add_argument(
+		'--file-path',
+		dest = 'file_path',
+		type = str,
+		help = 'The path to the file (only used for file pushes)',
+	)
+
+	send_push.add_argument(
+		'--file-name',
+		dest    = 'file_name',
+		type    = str,
+		default = None,
+		help    = 'The name of the file (only used for file pushes), by dfeault this is the name of the file',
+	)
+
+	send_push.add_argument(
+		'--file-type',
+		dest    = 'file_type',
+		type    = str,
+		default = None,
+		help    = 'The MIME type of the file (only used for file pushes), by default the MIME type is guessed',
+	)
+
+	send_push.set_defaults(func = command_push_send)
+
+
+
+	push_history = push_parsers.add_parser(
+		'history',
+		help = 'Get your push history.',
+	)
+
+	push_history.add_argument(
+		'--filter-type',
+		type    = str,
+		choices = pb4py.Client.PUSH_TYPES,
+		help    = 'Filter the pushes by their type',
+	)
+
+	push_history.set_defaults(func = command_push_history)
+
+
+
+	dismiss_push = push_parsers.add_parser(
+		'dismiss',
+		help = 'Dismiss a push.',
+	)
+
+	dismiss_push.add_argument(
+		'iden',
+		type = str,
+		help = 'The push ID',
+	)
+
+	dismiss_push.set_defaults(func = command_push_dismiss)
+
+
+
+	delete_push = push_parsers.add_parser(
+		'delete',
+		help = 'Delete a push',
+	)
+
+	delete_push.add_argument(
+		'iden',
+		type = str,
+		help = 'The push ID',
+	)
+
+	delete_push.set_defaults(func = command_push_delete)
+
 def add_parser_commands(parsers):
 	parsers.add_parser(
 		'generate-config',
@@ -178,6 +311,11 @@ def add_parser_commands(parsers):
 		'me',
 		help = 'Get/Update information about yourself.',
 	).set_defaults(func = command_me_get)
+
+	add_push_commands(parsers.add_parser(
+		'pushes',
+		help = 'Manage pushes',
+	))
 
 def parse_args():
 	parser = argparse.ArgumentParser(
@@ -226,10 +364,13 @@ def prompt(question, default = "yes"):
 def build_table(data, columns):
 	return tabulate.tabulate(
 		[
-			[row[column] for column in columns]
+			[
+				row[column] if column in row else ''
+				for column in columns
+			]
 			for row in data
 		],
-		[col.capitalize() for col in columns]
+		[col.replace('_', ' ').capitalize() for col in columns]
 	)
 
 
@@ -328,6 +469,107 @@ def command_me_get(client, args):
 	me = client.me()
 
 	print(build_table([me], ['name', 'email']))
+
+@client_command
+def command_push_send(client, args):
+	push_type = args.push_type
+	if push_type == 'file':
+		if not args.file_path:
+			raise ValueError('No file was specified')
+
+		args.file_url = client.upload_file(
+			args.file_path,
+			filename  = args.file_name,
+			file_type = args.file_type,
+		)['file_url']
+
+		push_data = {
+			k: getattr(args, k)
+			for k in ['title', 'body', 'file_name', 'file_type', 'file_url']
+			if getattr(args, k) is not None
+		}
+	elif push_type == 'link':
+		if not args.url:
+			raise ValueError('No URL was given')
+
+		push_data = {
+			k: getattr(args, k)
+			for k in ['title', 'body', 'url']
+			if getattr(args, k) is not None
+		}
+	elif push_type == 'note':
+		push_data = {
+			k: getattr(args, k)
+			for k in ['title', 'body']
+			if getattr(args, k) is not None
+		}
+
+	push_data.update({
+		k: getattr(args, k)
+		for k in ['device_iden', 'email', 'channel_tag', 'client_iden']
+		if getattr(args, k) is not None
+	})
+
+	client.push(push_type, **push_data)
+
+	print('Sent push')
+
+@client_command
+def command_push_history(client, args):
+	pushes = client.push_history()
+
+	if len(pushes) == 0:
+		print('No pushes :\'(')
+		return
+
+	if args.filter_type:
+		pushes = [push for push in pushes if push['type'] == args.filter_type]
+
+	pushes = {
+		push_type: [push for push in pushes if push['type'] == push_type]
+		for push_type in pb4py.Client.PUSH_TYPES
+	}
+
+	for push_type in pb4py.Client.PUSH_TYPES:
+		print()
+
+		pushes_of_type = pushes[push_type]
+		if len(pushes_of_type) == 0:
+			continue
+
+		if push_type == 'file':
+			columns = ['iden', 'sender_name', 'sender_email', 'file_url']
+		elif push_type == 'link':
+			columns = ['iden', 'sender_name', 'sender_email', 'title', 'body', 'url']
+		elif push_type == 'note':
+			columns = ['iden', 'sender_name', 'sender_email', 'title', 'body']
+
+		print('===== ' + push_type.capitalize() + ' =====')
+		print(build_table(pushes_of_type, columns))
+
+@client_command
+def command_push_dismiss(client, args):
+	push = args.iden
+
+	confirm = prompt('Are you sure you want to dismiss push {}?'.format(push), default = 'no')
+	if not confirm:
+		return
+
+	client.dismiss_push(push)
+
+	print('Push dismissed')
+
+@client_command
+def command_push_delete(client, args):
+	push = args.iden
+
+	confirm = prompt('Are you sure you want to delete push {}?'.format(push), default = 'no')
+	if not confirm:
+		return
+
+	client.delete_push(push)
+
+	print('Push deleted')
 
 
 
