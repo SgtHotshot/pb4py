@@ -54,14 +54,16 @@ class Client(object):
 
 		self.auth = self._get_auth_module(self.settings.get('auth', None))
 
-	def devices(self):
+	def devices(self, exclude_inactive = True):
 		"""
 		List devices.
 		"""
 
 		resp = self.auth.send_request(Client.DEVICE_URL, 'GET')
 
-		return resp['devices']
+		devices = resp['devices']
+
+		return devices if not exclude_inactive else Client._filter_inactive(devices)
 
 	def create_device(self, name, device_type):
 		"""
@@ -171,15 +173,17 @@ class Client(object):
 			'DELETE',
 		)
 
-	def contacts(self):
+	def contacts(self, exclude_inactive = True):
 		"""
 		Get contacts
 		"""
 
-		return self.auth.send_request(
+		contacts = self.auth.send_request(
 			Client.CONTACTS_URL,
 			'GET',
-		)
+		)['contacts']
+
+		return contacts if not exclude_inactive else Client._filter_inactive(contacts)
 
 	def create_contact(self, name, email):
 		"""
@@ -346,4 +350,8 @@ class Client(object):
 
 		with open(settings, 'r') as fh:
 			return json.load(fh)
+
+	@staticmethod
+	def _filter_inactive(elements):
+		return [elem for elem in elements if elem['active']]
 
