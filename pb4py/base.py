@@ -1,4 +1,4 @@
-from pb4py import auth
+from pb4py import auth, utils
 from pb4py.logger import Logs
 
 import json
@@ -39,7 +39,6 @@ class Client(object):
 			self.logger.error('No settings given')
 			raise Exception('No settings given')
 
-
 		if os.path.exists(Client.GLOBAL_SETTINGS_FILE):
 			self.settings = Client._load_config()
 			self.logger.info('Config file loaded')
@@ -53,7 +52,6 @@ class Client(object):
 
 			self.settings.update(settings)
 
-		auth_settings = self.settings['auth']
 		self.auth = self._get_auth_module(self.settings['auth'])
 
 	def devices(self):
@@ -330,11 +328,7 @@ class Client(object):
 
 			return auth.OAuthAuthenticator(auth_settings)
 		else:
-			self._log_and_raise('Invalid authentication scheme given. Must be basic or oauth')
-
-	def _log_and_raise(self, message, exception_type = Exception):
-		self.logger.error(message)
-		raise exception_type(message)
+			utils.log_and_raise('Invalid authentication scheme given. Must be basic or oauth')
 
 	@staticmethod
 	def _load_config(settings = None):
