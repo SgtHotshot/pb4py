@@ -174,6 +174,11 @@ def add_parser_commands(parsers):
 		help = 'Manage contacts.',
 	))
 
+	parsers.add_parser(
+		'me',
+		help = 'Get/Update information about yourself.',
+	).set_defaults(func = command_me_get)
+
 def parse_args():
 	parser = argparse.ArgumentParser(
 		description = 'A CLI command for working with PushBullet',
@@ -317,6 +322,12 @@ def command_contacts_delete(client, args):
 	client.delete_contact(contact)
 
 	print('Contact deleted')
+
+@client_command
+def command_me_get(client, args):
+	me = client.me()
+
+	print(build_table([me], ['name', 'email']))
 
 
 
