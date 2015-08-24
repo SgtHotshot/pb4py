@@ -57,3 +57,8 @@ first.
 		}
 	}
 
+## CLI
+
+A CLI command is provided for being able to use PushBullet from the command line.
+Just use the `pb4.py` command.
+
