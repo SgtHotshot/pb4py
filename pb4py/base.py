@@ -7,6 +7,16 @@ import os
 import os.path
 import requests
 
+# Try and import urlparse. This may fail based on the version of Python that is
+# on the system. We do provide a fallback option, however.
+try:
+	import urlparse
+except ImportError:
+	# pylint: disable=import-error, no-name-in-module
+	import urllib.parse
+	urlparse = urllib.parse
+	# pylint: enable=import-error, no-name-in-module
+
 class Client(object):
 	"""
 	PushBullet client for Python.
@@ -14,14 +24,26 @@ class Client(object):
 
 	GLOBAL_SETTINGS_FILE = os.path.expanduser('~/.pb4pyrc')
 
-	BASE_URL         = 'https://api.pushbullet.com/v2'
-	CONTACTS_URL     = BASE_URL + '/contacts'
-	DEVICE_URL       = BASE_URL + '/devices'
-	ME_URL           = BASE_URL + '/users/me'
-	PUSH_URL         = BASE_URL + '/pushes'
-	UPLOAD_URL       = BASE_URL + '/upload-request'
-	SUBSCRIPTION_URL = BASE_URL + '/subscriptions'
-	CHANNEL_URL      = BASE_URL + '/channel-info'
+	API_ROOT                = 'https://api.pushbullet.com'
+	API_VERSION             = '/v2'
+	URL_CONTACTS_LIST       = API_VERSION + '/contacts'
+	URL_CONTACTS_CREATE     = URL_CONTACTS_LIST
+	URL_CONTACTS_UPDATE     = URL_CONTACTS_LIST + '/{contact}'
+	URL_CONTACTS_DELETE     = URL_CONTACTS_UPDATE
+	URL_DEVICE_LIST         = API_VERSION + '/devices'
+	URL_DEVICE_CREATE       = URL_DEVICE_LIST
+	URL_DEVICE_UPDATE       = URL_DEVICE_LIST + '/{device}'
+	URL_DEVICE_DELETE       = URL_DEVICE_UPDATE
+	URL_ME                  = API_VERSION + '/users/me'
+	URL_PUSH_SEND           = API_VERSION + '/pushes'
+	URL_PUSH_HISTORY        = URL_PUSH_SEND
+	URL_PUSH_DISMISS        = URL_PUSH_SEND + '/{push}'
+	URL_PUSH_DELETE         = URL_PUSH_DISMISS
+	URL_FILE_UPLOAD         = API_VERSION + '/upload-request'
+	URL_CHANNEL_INFO        = API_VERSION + '/channel-info'
+	URL_SUBSCRIPTION_LIST   = API_VERSION + '/subscriptions'
+	URL_SUBSCRIPTION_CREATE = URL_SUBSCRIPTION_LIST
+	URL_SUBSCRIPTION_DELETE = URL_SUBSCRIPTION_LIST + '/{channel}'
 	
 	MAX_FILE_SIZE = 25000000
 	MB_DIVIDE     = (1024.0 * 1024.0)
@@ -66,7 +88,7 @@ class Client(object):
 		List devices.
 		"""
 
-		resp = self._send_request(Client.DEVICE_URL, 'GET')
+		resp = self._send_request(Client.URL_DEVICE_LIST, 'GET')
 
 		devices = resp['devices']
 
@@ -78,7 +100,7 @@ class Client(object):
 		"""
 
 		resp = self.auth.send_request(
-			Client.DEVICE_URL,
+			Client.URL_DEVICE_CREATE,
 			'POST',
 			data = {
 				'type': device_type,
@@ -94,9 +116,10 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.DEVICE_URL + '/' + device_iden,
+			Client.URL_DEVICE_UPDATE + '/' + device_iden,
 			'POST',
-			data = kwargs,
+			url_kwargs = {'device': device_iden},
+			data       = kwargs,
 		)
 
 	def delete_device(self, device_iden):
@@ -104,7 +127,11 @@ class Client(object):
 		Delete the given device.
 		"""
 
-		self._send_request(Client.DEVICE_URL + '/' + device_iden, 'DELETE')
+		self._send_request(
+			Client.URL_DEVICE_DELETE,
+			'DELETE',
+			url_kwargs = {'device': device_iden},
+		)
 
 	def push(self, push_type, **kwargs):
 		"""
@@ -140,7 +167,7 @@ class Client(object):
 
 		kwargs['type'] = push_type
 
-		return self._send_request(Client.PUSH_URL, 'POST', data = kwargs)
+		return self._send_request(Client.URL_PUSH_SEND, 'POST', data = kwargs)
 
 	def push_history(self, modified_timestamp = 0, exclude_inactive = True):
 		"""
@@ -149,10 +176,10 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.PUSH_URL,
+			Client.URL_PUSH_HISTORY,
 			'GET',
 			params = {
-				'active': 'true' if exclude_inactive else 'false',
+				'active':        'true' if exclude_inactive else 'false',
 				'modified_after': modified_timestamp,
 			},
 		)['pushes']
@@ -163,9 +190,10 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.PUSH_URL + '/' + push_iden,
+			Client.URL_PUSH_DISMISS,
 			'POST',
-			data = {'dismissed': 'true'}
+			url_kwargs = {'push': push_iden},
+			data       = {'dismissed': 'true'},
 		)
 
 	def delete_push(self, push_iden):
@@ -174,8 +202,9 @@ class Client(object):
 		"""
 
 		self._send_request(
-			Client.PUSH_URL + '/' + push_iden,
+			Client.URL_PUSH_DELETE,
 			'DELETE',
+			url_kwargs = {'push': push_iden},
 		)
 
 	def contacts(self, exclude_inactive = True):
@@ -184,7 +213,7 @@ class Client(object):
 		"""
 
 		contacts = self._send_request(
-			Client.CONTACTS_URL,
+			Client.URL_CONTACTS_LIST,
 			'GET',
 		)['contacts']
 
@@ -196,7 +225,7 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.CONTACTS_URL,
+			Client.URL_CONTACTS_CREATE,
 			'POST',
 			data = {'name': name, 'email': email},
 		)
@@ -207,9 +236,10 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.CONTACTS_URL + '/' + contact_iden,
+			Client.URL_CONTACTS_UPDATE,
 			'POST',
-			data = kwargs,
+			url_kwargs = {'contact': contact_iden},
+			data       = kwargs,
 		)
 
 	def delete_contact(self, contact_iden):
@@ -218,8 +248,9 @@ class Client(object):
 		"""
 
 		self._send_request(
-			Client.CONTACTS_URL + '/' + contact_iden,
+			Client.URL_CONTACTS_DELETE,
 			'DELETE',
+			url_kwargs = {'contact': contact_iden}
 		)
 
 	def me(self):
@@ -227,7 +258,7 @@ class Client(object):
 		Get information about the current user
 		"""
 
-		return self._send_request(Client.ME_URL, 'GET')
+		return self._send_request(Client.URL_ME, 'GET')
 
 	def update_me(self, **kwargs):
 		"""
@@ -235,10 +266,10 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.ME_URL,
+			Client.URL_ME,
 			'POST',
 			headers = {'content-type': 'application/json'},
-			data = json.dumps(kwargs),
+			data    = json.dumps(kwargs),
 		)
 
 	def upload_file(self, input_file, filename = None, file_type = None):
@@ -267,7 +298,7 @@ class Client(object):
 			return None
 
 		resp = self._send_request(
-			Client.UPLOAD_URL,
+			Client.URL_FILE_UPLOAD,
 			'POST',
 			data = {'file_name': name, 'file_type': mime_type}
 		)
@@ -292,7 +323,7 @@ class Client(object):
 		List Subscriptions
 		"""
 
-		subscriptions = self._send_request(Client.SUBSCRIPTION_URL,'GET')['subscriptions']
+		subscriptions = self._send_request(Client.URL_SUBSCRIPTION_LIST, 'GET')['subscriptions']
 
 		return subscriptions if not exclude_inactive else Client._filter_inactive(subscriptions)
 
@@ -302,9 +333,9 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.SUBSCRIPTION_URL,
+			Client.URL_SUBSCRIPTION_CREATE,
 			'POST',
-			data = {'channel_tag': channel_tag}
+			data = {'channel_tag': channel_tag},
 		)
 
 	def get_channel_info(self, channel_tag):
@@ -313,7 +344,7 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.CHANNEL_URL,
+			Client.URL_CHANNEL_INFO,
 			'GET',
 			params = {'tag': channel_tag},
 		)
@@ -324,8 +355,9 @@ class Client(object):
 		"""
 
 		return self._send_request(
-			Client.SUBSCRIPTION_URL + '/' + channel_id,
+			Client.URL_SUBSCRIPTION_DELETE,
 			'DELETE',
+			url_kwargs = {'channel': channel_id},
 		)
 
 	def _get_auth_module(self, auth_settings):
@@ -346,7 +378,20 @@ class Client(object):
 				'Invalid authentication scheme given. Must be basic or oauth',
 			)
 
-	def _send_request(self, url, method, skip_auth = False, **kwargs):
+	def _send_request(self, url, method, url_kwargs = {}, skip_auth = False, **kwargs):
+		url_parts = urlparse.urlparse(Client.API_ROOT)
+
+		url = urlparse.urlunparse(
+			(
+				url_parts.scheme,
+				url_parts.netloc,
+				url.format(**url_kwargs),
+				'',
+				'',
+				'',
+			)
+		)
+
 		auth = self.auth.get_request_auth() if not skip_auth else None
 
 		resp = requests.request(method, url, auth = auth, **kwargs)
