@@ -240,7 +240,7 @@ class Client(object):
 			data = json.dumps(kwargs),
 		)
 
-	def upload_file(self, inputfile, filename = None, file_type = None):
+	def upload_file(self, input_file, filename = None, file_type = None):
 		"""
 		Upload a file. The inputfile parameter can be a file path string
 		or a file handle. If you give a file handle you can override the
@@ -248,29 +248,22 @@ class Client(object):
 		of the file but you can override that as well.
 		"""
 
-		if isinstance(inputfile, str) and filename is None:
-			filename = os.path.basename(inputfile)
+		if isinstance(input_file, str) and filename is None:
+			filename = os.path.basename(input_file)
 
-		file_handle = open(inputfile, 'rb') if isinstance(inputfile, str) else inputfile
+		we_opened_the_file = not isinstance(input_file, str)
+
+		file_handle = open(input_file, 'rb') if isinstance(input_file, str) else input_file
 		name        = filename or file_handle.name
 		mime_type   = file_type or mimetypes.guess_type(name)
 
-		if isinstance(inputfile, str):
-			size = str(os.path.getsize(inputfile)/Client.MB_DIVIDE)
-			if os.path.getsize(inputfile) <= Client.MAX_FILE_SIZE:	
-				self.logger.debug("File is: " + size + "MB")
-			else:
-				self.logger.debug("File was bigger than 25mb.  It was: " + size + "MB")
-				return None
+		size     = os.fstat(file_handle.fileno()).st_size
+		fileSize = str(size / Client.MB_DIVIDE)
+		if size <= Client.MAX_FILE_SIZE:
+			self.logger.debug("File is: " + fileSize + "MB")
 		else:
-			self.logger.debug("Was a File Handle not a file path")
-			size = os.fstat(file_handle.fileno()).st_size
-			fileSize = str(size/Client.MB_DIVIDE)
-			if size <= Client.MAX_FILE_SIZE:
-				self.logger.debug("File is: " + fileSize + "MB")
-			else:
-				self.logger.debug("File was bigger than 25mb.  It was: " + fileSize + "MB")
-				return None
+			self.logger.debug("File was bigger than 25mb.  It was: " + fileSize + "MB")
+			return None
 
 		resp = self.auth.send_request(
 			Client.UPLOAD_URL,
@@ -287,6 +280,9 @@ class Client(object):
 				'file': file_handle,
 			},
 		)
+
+		if we_opened_the_file:
+			file_handle.close()
 
 		return resp
 
