@@ -26,21 +26,3 @@ class Authenticator(object):
 		Get the authentication information for this request.
 		"""
 
-	def send_request(self, url, method, skip_auth = False, **kwargs):
-		"""
-		Send authenticated request
-		"""
-
-		auth = self.get_request_auth() if not skip_auth else None
-
-		resp = requests.request(method, url, auth = auth, **kwargs)
-		if resp.status_code < 200 and resp.status_code >= 300:
-			utils.log_and_raise(self.logger,
-			'Bad status code of {} returned'.format(resp.status_code),
-			IOError,
-		)
-
-		ret = resp.json() if resp.status_code != 204 else None
-
-		return ret
-

@@ -5,6 +5,7 @@ import json
 import mimetypes
 import os
 import os.path
+import requests
 
 class Client(object):
 	"""
@@ -65,7 +66,7 @@ class Client(object):
 		List devices.
 		"""
 
-		resp = self.auth.send_request(Client.DEVICE_URL, 'GET')
+		resp = self._send_request(Client.DEVICE_URL, 'GET')
 
 		devices = resp['devices']
 
@@ -92,7 +93,7 @@ class Client(object):
 		Update an existing device. kwargs gives the values that will be updated.
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.DEVICE_URL + '/' + device_iden,
 			'POST',
 			data = kwargs,
@@ -103,7 +104,7 @@ class Client(object):
 		Delete the given device.
 		"""
 
-		self.auth.send_request(Client.DEVICE_URL + '/' + device_iden, 'DELETE')
+		self._send_request(Client.DEVICE_URL + '/' + device_iden, 'DELETE')
 
 	def push(self, push_type, **kwargs):
 		"""
@@ -139,7 +140,7 @@ class Client(object):
 
 		kwargs['type'] = push_type
 
-		return self.auth.send_request(Client.PUSH_URL, 'POST', data = kwargs)
+		return self._send_request(Client.PUSH_URL, 'POST', data = kwargs)
 
 	def push_history(self, modified_timestamp = 0, exclude_inactive = True):
 		"""
@@ -147,7 +148,7 @@ class Client(object):
 		UNIX timestamp.
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.PUSH_URL,
 			'GET',
 			params = {
@@ -161,7 +162,7 @@ class Client(object):
 		Dismiss a push
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.PUSH_URL + '/' + push_iden,
 			'POST',
 			data = {'dismissed': 'true'}
@@ -172,7 +173,7 @@ class Client(object):
 		Delete a push
 		"""
 
-		self.auth.send_request(
+		self._send_request(
 			Client.PUSH_URL + '/' + push_iden,
 			'DELETE',
 		)
@@ -182,7 +183,7 @@ class Client(object):
 		Get contacts
 		"""
 
-		contacts = self.auth.send_request(
+		contacts = self._send_request(
 			Client.CONTACTS_URL,
 			'GET',
 		)['contacts']
@@ -194,7 +195,7 @@ class Client(object):
 		Create a new contact
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.CONTACTS_URL,
 			'POST',
 			data = {'name': name, 'email': email},
@@ -205,7 +206,7 @@ class Client(object):
 		Update contact information
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.CONTACTS_URL + '/' + contact_iden,
 			'POST',
 			data = kwargs,
@@ -216,7 +217,7 @@ class Client(object):
 		Delete contact
 		"""
 
-		self.auth.send_request(
+		self._send_request(
 			Client.CONTACTS_URL + '/' + contact_iden,
 			'DELETE',
 		)
@@ -226,14 +227,14 @@ class Client(object):
 		Get information about the current user
 		"""
 
-		return self.auth.send_request(Client.ME_URL, 'GET')
+		return self._send_request(Client.ME_URL, 'GET')
 
 	def update_me(self, **kwargs):
 		"""
 		Update current user preferences
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.ME_URL,
 			'POST',
 			headers = {'content-type': 'application/json'},
@@ -265,13 +266,13 @@ class Client(object):
 			self.logger.debug("File was bigger than 25mb.  It was: " + fileSize + "MB")
 			return None
 
-		resp = self.auth.send_request(
+		resp = self._send_request(
 			Client.UPLOAD_URL,
 			'POST',
 			data = {'file_name': name, 'file_type': mime_type}
 		)
 
-		self.auth.send_request(
+		self._send_request(
 			resp['upload_url'],
 			'POST',
 			skip_auth = True,
@@ -291,7 +292,7 @@ class Client(object):
 		List Subscriptions
 		"""
 
-		subscriptions = self.auth.send_request(Client.SUBSCRIPTION_URL,'GET')['subscriptions']
+		subscriptions = self._send_request(Client.SUBSCRIPTION_URL,'GET')['subscriptions']
 
 		return subscriptions if not exclude_inactive else Client._filter_inactive(subscriptions)
 
@@ -300,7 +301,7 @@ class Client(object):
 		Subscribe to a channel
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.SUBSCRIPTION_URL,
 			'POST',
 			data = {'channel_tag': channel_tag}
@@ -311,7 +312,7 @@ class Client(object):
 		Get a Channel's Info
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.CHANNEL_URL,
 			'GET',
 			params = {'tag': channel_tag},
@@ -322,7 +323,7 @@ class Client(object):
 		UnSubscribe to a channel
 		"""
 
-		return self.auth.send_request(
+		return self._send_request(
 			Client.SUBSCRIPTION_URL + '/' + channel_id,
 			'DELETE',
 		)
@@ -344,6 +345,21 @@ class Client(object):
 				self.logger,
 				'Invalid authentication scheme given. Must be basic or oauth',
 			)
+
+	def _send_request(self, url, method, skip_auth = False, **kwargs):
+		auth = self.auth.get_request_auth() if not skip_auth else None
+
+		resp = requests.request(method, url, auth = auth, **kwargs)
+		if resp.status_code < 200 and resp.status_code >= 300:
+			utils.log_and_raise(
+				self.logger,
+				'Bad status code of {} returned'.format(resp.status_code),
+				IOError,
+			)
+
+		ret = resp.json() if resp.status_code != 204 else None
+
+		return ret
 
 	@staticmethod
 	def _load_config(settings = None):
