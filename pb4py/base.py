@@ -1,4 +1,4 @@
-from pb4py import auth, utils
+from pb4py import auth, exceptions, utils
 from pb4py.logger import Logs
 
 import json
@@ -65,8 +65,11 @@ class Client(object):
 		self.logger = Logs.getLogger('PB4Py')
 
 		if not os.path.exists(Client.GLOBAL_SETTINGS_FILE) and not settings:
-			self.logger.error('No settings given')
-			raise Exception('No settings given')
+			utils.log_and_raise(
+				self.logger,
+				'No settings given',
+				exceptions.PB4PyConfigurationException,
+			)
 
 		if os.path.exists(Client.GLOBAL_SETTINGS_FILE):
 			self.settings = Client._load_config()
@@ -163,7 +166,11 @@ class Client(object):
 		"""
 
 		if push_type not in Client.PUSH_TYPES:
-			raise ValueError('Invalid push type {}'.format(push_type))
+			utils.log_and_raise(
+				self.logger,
+				'Invalid push type {}'.format(push_type),
+				exceptions.PB4PyException
+			)
 
 		kwargs['type'] = push_type
 
@@ -362,20 +369,25 @@ class Client(object):
 
 	def _get_auth_module(self, auth_settings):
 		if not auth_settings:
-			utils.log_and_raise(self.logger, 'No authentication settings found')
+			utils.log_and_raise(
+				self.logger,
+				'No authentication settings found',
+				exceptions.PB4PyConfigurationException,
+			)
 
 		if auth_settings['type'] == 'basic':
-			self.logger.info('Selected Basic Authenticator')
+			self.logger.debug('Selected Basic Authenticator')
 
 			return auth.BasicAuthenticator(auth_settings)
 		elif auth_settings['type'] == 'oauth':
-			self.logger.info('Selected OAuth Authenticator')
+			self.logger.debug('Selected OAuth Authenticator')
 
 			return auth.OAuthAuthenticator(auth_settings)
 		else:
 			utils.log_and_raise(
 				self.logger,
 				'Invalid authentication scheme given. Must be basic or oauth',
+				exceptions.PB4PyConfigurationException,
 			)
 
 	def _send_request(self, url, method, url_kwargs = {}, skip_auth = False, **kwargs):
@@ -399,7 +411,7 @@ class Client(object):
 			utils.log_and_raise(
 				self.logger,
 				'Bad status code of {} returned'.format(resp.status_code),
-				IOError,
+				exceptions.PB4PyAPIException,
 			)
 
 		ret = resp.json() if resp.status_code != 204 else None
