@@ -8,6 +8,7 @@ import sys
 import tabulate
 
 import pb4py
+import pb4py.exceptions
 
 
 
@@ -680,7 +681,7 @@ def main():
 
 	try:
 		args.func(args)
-	except Exception as ex:
+	except pb4py.exceptions.PB4PyException as ex:
 		print(ex)
 
 if __name__ == '__main__':
